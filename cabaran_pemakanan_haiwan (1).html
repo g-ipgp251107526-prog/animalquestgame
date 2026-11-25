@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cabaran Pemakanan Haiwan</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Fredoka & Nunito -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --base-w: 1200px;
+            --base-h: 675px;
+            --scale: 1;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Nunito', sans-serif;
+            background: radial-gradient(circle at center, #065f46 0%, #022c22 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Bingkai Utama 16:9 yang Sentiasa Muat di Dalam Skrin */
+        #game-frame {
+            position: relative;
+            width: min(calc(100vw - 16px), calc((100vh - 16px) * 16 / 9));
+            height: min(calc(100vh - 16px), calc((100vw - 16px) * 9 / 16));
+            border-radius: calc(26px * var(--scale));
+            box-shadow: 0 calc(24px * var(--scale)) calc(55px * var(--scale)) rgba(0, 0, 0, 0.68),
+                        0 0 0 calc(4px * var(--scale)) #6ee7b7;
+            overflow: hidden;
+            background: linear-gradient(160deg, #f8fafc 0%, #ecfdf5 100%);
+            flex-shrink: 0;
+        }
+
+        /* Pentas Dalaman 1200x675 yang Diskalakan Secara Berkadar Tepat (--scale) */
+        #scaled-stage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1200px;
+            height: 675px;
+            transform: scale(var(--scale));
+            transform-origin: top left;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-image: radial-gradient(rgba(16, 185, 129, 0.13) 2px, transparent 2px);
+            background-size: 28px 28px;
+            color: #1e293b;
+        }
+
+        /* Animasi */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-7px) rotate(2deg); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.88) translateY(10px); }
+            70% { transform: scale(1.02) translateY(-2px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop-in {
+            animation: popIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-10px) rotate(-2deg); }
+            40% { transform: translateX(10px) rotate(2deg); }
+            60% { transform: translateX(-7px) rotate(-1deg); }
+            80% { transform: translateX(7px) rotate(1deg); }
+        }
+        .animate-shake {
+            animation: shake 0.36s ease-in-out;
+        }
+
+        /* Butang & Zon Sasaran 3D */
+        .btn-3d {
+            transition: transform 0.14s cubic-bezier(0.4, 0, 0.2, 1), filter 0.14s ease, box-shadow 0.14s ease;
+        }
+        .btn-3d:active:not(:disabled) {
+            transform: translateY(4px) !important;
+        }
+        .btn-3d:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .zone-herbivor {
+            background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+            box-shadow: 0 6px 0 #14532d, 0 10px 20px rgba(21, 128, 61, 0.28);
+        }
+        .zone-herbivor:hover:not(:disabled) {
+            filter: brightness(1.06);
+            transform: translateX(-4px);
+        }
+
+        .zone-karnivor {
+            background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+            box-shadow: 0 6px 0 #7f1d1d, 0 10px 20px rgba(185, 28, 28, 0.28);
+        }
+        .zone-karnivor:hover:not(:disabled) {
+            filter: brightness(1.06);
+            transform: translateX(-4px);
+        }
+
+        .zone-omnivor {
+            background: linear-gradient(135deg, #3b82f6 0%, #4f46e5 100%);
+            box-shadow: 0 6px 0 #312e81, 0 10px 20px rgba(67, 56, 202, 0.28);
+        }
+        .zone-omnivor:hover:not(:disabled) {
+            filter: brightness(1.06);
+            transform: translateX(-4px);
+        }
+
+        /* Zon Lepas (Drop Zone) Aktif semasa kad diseret */
+        .drop-target-active {
+            transform: scale(1.035) translateX(-6px) !important;
+            outline: 5px dashed #fde047;
+            outline-offset: 3px;
+            filter: brightness(1.12);
+        }
+
+        /* Kad Haiwan Boleh Diseret */
+        #animal-card {
+            touch-action: none;
+            cursor: grab;
+            will-change: transform;
+        }
+        #animal-card:active {
+            cursor: grabbing;
+        }
+
+        /* Skrolbar halus dalam senarai ulang kaji */
+        .custom-scroll::-webkit-scrollbar {
+            width: 7px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #ffe4e6;
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #fda4af;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BINGKAI LUAR 16:9 -->
+    <div id="game-frame">
+        <!-- PENTAS DALAMAN 1200x675 DENGAN PENSKALAAN BERKADAR -->
+        <main id="scaled-stage">
+
+            <!-- BAR ATAS (HEADER: 68px tinggi tetap dalam skala 1200x675) -->
+            <header class="h-[68px] bg-gradient-to-r from-emerald-700 via-teal-600 to-emerald-700 text-white px-7 flex items-center justify-between shadow-md shrink-0">
+                <div class="flex items-center gap-3.5">
+                    <span class="text-4xl drop-shadow">🦁</span>
+                    <div>
+                        <h1 class="font-display text-2xl font-bold leading-tight tracking-wide">Cabaran Pemakanan Haiwan</h1>
+                        <p class="text-xs text-emerald-100 font-semibold leading-none mt-0.5">Sains Sekolah Rendah • Pengelasan Tabiat Pemakanan Haiwan</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <span class="bg-black/20 text-emerald-50 text-xs font-bold px-3.5 py-1.5 rounded-full border border-white/15">
+                        Paparan 16:9 Berskala Penuh
+                    </span>
+                    <button id="btn-home" onclick="confirmReturnHome()" title="Kembali ke Menu" class="hidden bg-white/20 hover:bg-white/30 active:scale-95 text-white px-4 py-2 rounded-xl transition font-bold text-sm flex items-center gap-1.5">
+                        <span>🏠</span>
+                        <span>Menu</span>
+                    </button>
+                    <button id="btn-sound" onclick="toggleMute()" title="Hidup/Matikan Bunyi" class="bg-white/20 hover:bg-white/30 active:scale-95 text-white px-3.5 py-2 rounded-xl transition text-xl leading-none">
+                        🔊
+                    </button>
+                </div>
+            </header>
+
+            <!-- ========================================================= -->
+            <!-- SKRIN 1: SKRIN MULA (607px tinggi)                        -->
+            <!-- ========================================================= -->
+            <section id="screen-start" class="flex-1 px-10 py-6 flex flex-col justify-between">
+                <!-- Tajuk & Arahan -->
+                <div class="text-center space-y-1.5">
+                    <div class="flex items-center justify-center gap-5 text-5xl animate-float">
+                        <span>🐘</span>
+                        <span>🐯</span>
+                        <span>🐻</span>
+                    </div>
+                    <h2 class="font-display text-4xl font-bold text-emerald-950">Jom Kelaskan Tabiat Pemakanan Haiwan!</h2>
+                    <p class="text-base text-slate-600 max-w-3xl mx-auto">
+                        Kenal pasti kumpulan haiwan berikut. Pelajar boleh <strong>klik zon kategori</strong>, <strong>seret kad haiwan</strong> ke zon sasaran di kanan, atau tekan kekunci <strong>[1] [2] [3]</strong>.
+                    </p>
+                </div>
+
+                <!-- 3 Kad Kumpulan Haiwan -->
+                <div class="grid grid-cols-3 gap-5 w-full">
+                    <!-- Herbivor -->
+                    <div class="bg-green-50/95 border-2 border-green-400 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+                        <div class="w-16 h-16 rounded-2xl bg-green-600 text-white flex items-center justify-center text-4xl shrink-0 shadow">🌿</div>
+                        <div>
+                            <h3 class="font-display font-bold text-green-900 text-xl">HERBIVOR</h3>
+                            <p class="text-sm text-green-800 leading-snug mt-0.5">Haiwan yang makan <strong>tumbuhan sahaja</strong> seperti rumput, dedaun, dan buah.</p>
+                        </div>
+                    </div>
+
+                    <!-- Karnivor -->
+                    <div class="bg-red-50/95 border-2 border-red-400 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+                        <div class="w-16 h-16 rounded-2xl bg-red-600 text-white flex items-center justify-center text-4xl shrink-0 shadow">🥩</div>
+                        <div>
+                            <h3 class="font-display font-bold text-red-900 text-xl">KARNIVOR</h3>
+                            <p class="text-sm text-red-800 leading-snug mt-0.5">Haiwan yang makan <strong>haiwan lain sahaja</strong> seperti daging, ikan, dan serangga.</p>
+                        </div>
+                    </div>
+
+                    <!-- Omnivor -->
+                    <div class="bg-indigo-50/95 border-2 border-indigo-400 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+                        <div class="w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-4xl shrink-0 shadow">🍽️</div>
+                        <div>
+                            <h3 class="font-display font-bold text-indigo-900 text-xl">OMNIVOR</h3>
+                            <p class="text-sm text-indigo-800 leading-snug mt-0.5">Haiwan yang makan kedua-dua <strong>tumbuhan dan haiwan lain</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pilihan Mod & Butang Mula -->
+                <div class="grid grid-cols-12 gap-5 items-stretch w-full">
+                    <div class="col-span-7 grid grid-cols-2 gap-4">
+                        <button id="mode-practice" onclick="selectMode('practice')" class="p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50 text-emerald-950 font-bold flex items-center gap-3.5 text-left transition shadow-sm ring-2 ring-emerald-400">
+                            <span class="text-4xl shrink-0">📘</span>
+                            <div>
+                                <div class="font-display text-lg">Mod Latihan</div>
+                                <div class="text-xs font-semibold text-emerald-700 mt-0.5">10 Soalan • Tiada had masa</div>
+                            </div>
+                        </button>
+                        <button id="mode-timed" onclick="selectMode('timed')" class="p-4 rounded-2xl border-2 border-slate-300 bg-white hover:bg-amber-50 text-slate-700 font-bold flex items-center gap-3.5 text-left transition">
+                            <span class="text-4xl shrink-0">⚡</span>
+                            <div>
+                                <div class="font-display text-lg">Mod Cabaran Pantas</div>
+                                <div class="text-xs font-semibold text-slate-500 mt-0.5">60 Saat • Kombo & 3 Nyawa</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <button onclick="startGame()" class="col-span-5 btn-3d py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-amber-950 font-display text-2xl font-bold shadow-[0_6px_0_#b45309] hover:brightness-105 flex items-center justify-center gap-3">
+                        <span class="text-3xl">🚀</span>
+                        <span>Mula Permainan</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ========================================================= -->
+            <!-- SKRIN 2: PAPARAN PERMAINAN DUA LAJUR (607px tinggi)        -->
+            <!-- ========================================================= -->
+            <section id="screen-game" class="hidden flex-1 px-8 py-5 grid grid-cols-12 gap-7 overflow-hidden">
+
+                <!-- LAJUR KIRI (7/12): Bar Status HUD, Kad Haiwan & Maklum Balas -->
+                <div class="col-span-7 flex flex-col justify-between gap-4 h-full">
+
+                    <!-- Bar Status HUD -->
+                    <div class="bg-white/95 px-5 py-3 rounded-2xl border-2 border-slate-200 shadow-xs space-y-2 shrink-0">
+                        <div class="flex items-center justify-between">
+                            <!-- Kiri: Nyawa atau Lencana Mod -->
+                            <div class="flex items-center gap-2">
+                                <span id="hearts-display" class="text-2xl tracking-wider">❤️❤️❤️</span>
+                                <span id="practice-badge" class="hidden bg-emerald-100 text-emerald-800 text-xs font-extrabold px-3 py-1.5 rounded-xl border border-emerald-300">
+                                    📘 Mod Latihan (10 Soalan)
+                                </span>
+                            </div>
+
+                            <!-- Tengah: Kemajuan Soalan atau Pemasa 60s -->
+                            <div class="text-center">
+                                <div id="question-counter-box" class="flex items-center gap-2">
+                                    <span class="text-xs font-bold uppercase text-slate-400">Soalan:</span>
+                                    <span id="question-counter" class="font-display text-xl font-bold text-slate-800">1 / 10</span>
+                                </div>
+                                <div id="global-timer-box" class="hidden flex items-center gap-2">
+                                    <span class="text-xs font-bold uppercase text-amber-600">Masa:</span>
+                                    <span id="global-timer-text" class="font-display text-2xl font-bold text-amber-700">60s</span>
+                                </div>
+                            </div>
+
+                            <!-- Kanan: Kombo & Skor -->
+                            <div class="flex items-center gap-2.5">
+                                <span id="combo-badge" class="hidden bg-amber-400 text-amber-950 text-xs font-extrabold px-3 py-1 rounded-xl shadow-2xs">
+                                    🔥 x2
+                                </span>
+                                <div class="bg-emerald-50 px-4 py-1 rounded-xl border border-emerald-200 flex items-baseline gap-2">
+                                    <span class="text-xs font-bold text-emerald-700 uppercase">Skor:</span>
+                                    <span id="score-display" class="font-display text-2xl font-bold text-emerald-900">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bar Kemajuan -->
+                        <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                            <div id="progress-bar" class="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-300" style="width: 10%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Kawasan Kad Haiwan & Tindanan Maklum Balas -->
+                    <div class="relative flex-1 flex items-center justify-center">
+                        <!-- Kad Haiwan Boleh Diseret -->
+                        <div id="animal-card" class="w-full h-full bg-gradient-to-b from-amber-50 via-white to-emerald-50/80 border-4 border-amber-300 rounded-3xl p-6 shadow-lg flex flex-col items-center justify-center text-center relative z-20">
+                            <span class="text-xs font-bold text-slate-500 bg-white px-4 py-1 rounded-full border border-slate-200 shadow-2xs mb-2">
+                                ✋ Seret kad ini ke zon kanan atau klik kategori
+                            </span>
+
+                            <div id="animal-emoji" class="text-[110px] leading-none my-2 drop-shadow-md animate-float pointer-events-none">
+                                🐯
+                            </div>
+
+                            <h2 id="animal-name" class="font-display text-4xl font-bold text-slate-800 pointer-events-none mt-1">
+                                Harimau
+                            </h2>
+
+                            <div class="mt-3 bg-amber-100/90 border border-amber-300 rounded-2xl px-6 py-3 w-full max-w-lg pointer-events-none">
+                                <div id="animal-diet-tag" class="text-xs font-extrabold uppercase tracking-wider text-amber-800 mb-1">
+                                    Diet: Daging haiwan lain
+                                </div>
+                                <p id="animal-hint" class="text-base font-semibold text-amber-950 leading-snug">
+                                    "Pemburu handal di hutan Malaysia dengan gigi taring tajam untuk menyiat daging."
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Tindanan Maklum Balas Segera -->
+                        <div id="feedback-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center">
+                            <div id="feedback-card" class="w-full h-full rounded-3xl p-7 shadow-2xl border-4 flex flex-col items-center justify-center text-center space-y-4 animate-pop-in">
+                                <div class="flex items-center justify-center gap-3">
+                                    <span id="feedback-icon" class="text-6xl">🎉</span>
+                                    <h3 id="feedback-title" class="font-display text-3xl font-bold">Betul!</h3>
+                                </div>
+                                <p id="feedback-desc" class="text-lg font-bold leading-relaxed bg-white/90 px-6 py-4 rounded-2xl max-w-lg border border-black/5 shadow-2xs">
+                                    Harimau ialah Karnivor kerana ia hanya memburu dan makan haiwan lain.
+                                </p>
+                                <button id="btn-next-question" onclick="advanceToNextQuestion()" class="btn-3d px-8 py-3 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white font-display text-lg font-bold shadow-[0_5px_0_#1e293b] flex items-center gap-2.5">
+                                    <span>Seterusnya</span>
+                                    <span>➡️</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAJUR KANAN (5/12): 3 Zon Sasaran Kategori -->
+                <div class="col-span-5 flex flex-col justify-between gap-4 h-full">
+                    <div class="text-xs font-extrabold uppercase tracking-wider text-emerald-900/75 px-1 shrink-0">
+                        Zon Sasaran Pengelasan (Klik / Seret / Kekunci 1-3):
+                    </div>
+
+                    <!-- Zon 1: Herbivor -->
+                    <button id="btn-herbivor" data-category="Herbivor" onclick="handleAnswer('Herbivor')" class="btn-3d zone-herbivor drop-zone flex-1 text-white rounded-3xl px-6 py-4 flex items-center justify-between gap-4 border-2 border-green-300 text-left">
+                        <div class="flex items-center gap-4 pointer-events-none">
+                            <span class="text-5xl drop-shadow">🌿</span>
+                            <div>
+                                <div class="font-display text-3xl font-bold tracking-wide leading-tight">HERBIVOR</div>
+                                <div class="text-sm text-green-100 font-semibold mt-0.5">Makan tumbuhan sahaja</div>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-black/25 font-display font-bold text-lg pointer-events-none">1</span>
+                    </button>
+
+                    <!-- Zon 2: Karnivor -->
+                    <button id="btn-karnivor" data-category="Karnivor" onclick="handleAnswer('Karnivor')" class="btn-3d zone-karnivor drop-zone flex-1 text-white rounded-3xl px-6 py-4 flex items-center justify-between gap-4 border-2 border-orange-300 text-left">
+                        <div class="flex items-center gap-4 pointer-events-none">
+                            <span class="text-5xl drop-shadow">🥩</span>
+                            <div>
+                                <div class="font-display text-3xl font-bold tracking-wide leading-tight">KARNIVOR</div>
+                                <div class="text-sm text-orange-100 font-semibold mt-0.5">Makan haiwan lain sahaja</div>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-black/25 font-display font-bold text-lg pointer-events-none">2</span>
+                    </button>
+
+                    <!-- Zon 3: Omnivor -->
+                    <button id="btn-omnivor" data-category="Omnivor" onclick="handleAnswer('Omnivor')" class="btn-3d zone-omnivor drop-zone flex-1 text-white rounded-3xl px-6 py-4 flex items-center justify-between gap-4 border-2 border-blue-300 text-left">
+                        <div class="flex items-center gap-4 pointer-events-none">
+                            <span class="text-5xl drop-shadow">🍽️</span>
+                            <div>
+                                <div class="font-display text-3xl font-bold tracking-wide leading-tight">OMNIVOR</div>
+                                <div class="text-sm text-blue-100 font-semibold mt-0.5">Makan tumbuhan & haiwan</div>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-black/25 font-display font-bold text-lg pointer-events-none">3</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ========================================================= -->
+            <!-- SKRIN 3: SKRIN KEPUTUSAN AKHIR (607px tinggi)             -->
+            <!-- ========================================================= -->
+            <section id="screen-end" class="hidden flex-1 px-9 py-6 grid grid-cols-12 gap-7 items-center overflow-hidden">
+
+                <!-- Lajur Kiri (5/12): Bintang, Pangkat & Statistik -->
+                <div class="col-span-5 flex flex-col items-center text-center justify-between h-full bg-white/95 rounded-3xl p-6 border-2 border-emerald-200 shadow-sm">
+                    <div class="space-y-2">
+                        <div id="end-stars" class="text-6xl tracking-widest animate-pop-in">⭐⭐⭐</div>
+                        <div class="inline-flex items-center gap-2 bg-amber-100 border-2 border-amber-300 text-amber-950 px-4 py-1.5 rounded-full font-display font-bold text-base">
+                            <span id="end-rank-icon">🏅</span>
+                            <span id="end-rank-title">Pakar Zoologi Muda</span>
+                        </div>
+                        <h2 id="end-title" class="font-display text-3xl font-bold text-emerald-900 pt-1">Tahniah!</h2>
+                        <p id="end-subtitle" class="text-sm text-slate-600 font-semibold">Anda telah menamatkan cabaran ini!</p>
+                    </div>
+
+                    <!-- 3 Kotak Statistik -->
+                    <div class="grid grid-cols-3 gap-3 w-full my-2">
+                        <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-3">
+                            <div class="text-xs font-bold text-emerald-700 uppercase">Markah</div>
+                            <div id="end-score" class="font-display text-2xl font-bold text-emerald-900 mt-0.5">0</div>
+                        </div>
+                        <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-3">
+                            <div class="text-xs font-bold text-amber-700 uppercase">Ketepatan</div>
+                            <div id="end-accuracy" class="font-display text-2xl font-bold text-amber-900 mt-0.5">100%</div>
+                        </div>
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-3">
+                            <div class="text-xs font-bold text-blue-700 uppercase">Kombo</div>
+                            <div id="end-max-combo" class="font-display text-2xl font-bold text-blue-900 mt-0.5">0x</div>
+                        </div>
+                    </div>
+
+                    <!-- Butang Tindakan -->
+                    <div class="flex gap-3 w-full">
+                        <button onclick="startGame()" class="btn-3d flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-display text-lg font-bold shadow-[0_5px_0_#0f766e] hover:brightness-105 flex items-center justify-center gap-2">
+                            <span>🔄</span>
+                            <span>Main Semula</span>
+                        </button>
+                        <button onclick="goHome()" class="btn-3d py-3.5 px-5 rounded-2xl bg-slate-200 text-slate-700 font-display text-lg font-bold shadow-[0_5px_0_#94a3b8] hover:bg-slate-300 flex items-center justify-center gap-2">
+                            <span>🏠</span>
+                            <span>Menu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lajur Kanan (7/12): Ulang Kaji Saintifik / Pencapaian Sempurna -->
+                <div class="col-span-7 h-full flex flex-col justify-center overflow-hidden">
+                    <!-- Senarai Semakan Jawapan Salah -->
+                    <div id="mistakes-container" class="w-full h-full flex flex-col bg-rose-50/95 border-2 border-rose-300 rounded-3xl p-5 space-y-3 overflow-hidden">
+                        <h3 class="font-display text-lg font-bold text-rose-900 flex items-center gap-2 shrink-0">
+                            <span>📖</span>
+                            <span>Nota Ulang Kaji (Jawapan Perlu Diperbaiki):</span>
+                        </h3>
+                        <div id="mistakes-list" class="flex-1 overflow-y-auto custom-scroll space-y-2.5 pr-2">
+                            <!-- Item kesilapan dijana di sini -->
+                        </div>
+                    </div>
+
+                    <!-- Paparan Cemerlang jika 100% Betul -->
+                    <div id="perfect-banner" class="hidden w-full h-full bg-gradient-to-br from-emerald-100 via-teal-50 to-amber-50 border-4 border-emerald-300 rounded-3xl p-8 flex flex-col items-center justify-center text-center space-y-4">
+                        <div class="text-7xl animate-float">🏆</div>
+                        <h3 class="font-display text-3xl font-bold text-emerald-900">Pencapaian Sempurna 100%!</h3>
+                        <p class="text-lg text-emerald-800 font-semibold max-w-lg leading-relaxed">
+                            Tahniah! Anda berjaya mengelas semua haiwan kepada kumpulan <strong>Herbivor</strong>, <strong>Karnivor</strong>, dan <strong>Omnivor</strong> tanpa sebarang kesilapan.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODAL PENGESAHAN KELUAR -->
+            <div id="confirm-modal" class="hidden absolute inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-center justify-center p-6">
+                <div class="bg-white rounded-3xl p-7 max-w-md w-full text-center space-y-4 shadow-2xl border-4 border-amber-300 animate-pop-in">
+                    <div class="text-5xl">🤔</div>
+                    <h3 class="font-display text-2xl font-bold text-slate-800">Kembali ke Menu Utama?</h3>
+                    <p class="text-base text-slate-600">Kemajuan permainan semasa anda tidak akan disimpan.</p>
+                    <div class="flex gap-3.5 pt-1">
+                        <button onclick="closeConfirmModal()" class="flex-1 py-3 rounded-2xl bg-slate-200 hover:bg-slate-300 font-bold text-slate-700 text-base">Batal</button>
+                        <button onclick="goHome()" class="flex-1 py-3 rounded-2xl bg-red-500 hover:bg-red-600 font-bold text-white text-base">Ya, Keluar</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        /* ============================================================================
+           0. PENSKALAAN BERKADAR MASA NYATA (--scale BERASASKAN BINGKAI 16:9)
+           ============================================================================ */
+        const BASE_WIDTH = 1200;
+        const BASE_HEIGHT = 675;
+        let currentScale = 1;
+
+        function updateViewportScale() {
+            const frame = document.getElementById('game-frame');
+            if (!frame) return;
+            const rect = frame.getBoundingClientRect();
+            const scaleX = rect.width / BASE_WIDTH;
+            const scaleY = rect.height / BASE_HEIGHT;
+            currentScale = Math.min(scaleX, scaleY);
+            document.documentElement.style.setProperty('--scale', currentScale.toFixed(6));
+        }
+
+        window.addEventListener('resize', updateViewportScale);
+        window.addEventListener('orientationchange', updateViewportScale);
+        updateViewportScale();
+
+        /* ============================================================================
+           1. BANK DATA 24 HAIWAN (SUKATAN SAINS MALAYSIA)
+           ============================================================================ */
+        const ANIMALS_DB = [
+            // HERBIVOR (8 Haiwan)
+            {
+                name: "Lembu",
+                emoji: "🐄",
+                category: "Herbivor",
+                diet: "Rumput dan dedaun",
+                hint: "Meragut rumput di padang dan mempunyai gigi geraham yang rata untuk melumatkan tumbuhan.",
+                explanation: "Lembu ialah Herbivor kerana ia hanya memakan tumbuh-tumbuhan seperti rumput."
+            },
+            {
+                name: "Gajah",
+                emoji: "🐘",
+                category: "Herbivor",
+                diet: "Daun, ranting & buah-buahan",
+                hint: "Menggunakan belalai panjang untuk mencapai pucuk daun pokok dan buah di dalam hutan.",
+                explanation: "Gajah ialah Herbivor kerana pemakanannya terdiri daripada tumbuhan sahaja."
+            },
+            {
+                name: "Arnab",
+                emoji: "🐇",
+                category: "Herbivor",
+                diet: "Sayur-sayuran, lobak & rumput",
+                hint: "Menggunakan gigi kacip tajam di hadapan untuk memotong lobak merah dan dedaun.",
+                explanation: "Arnab ialah Herbivor kerana ia hanya memakan tumbuh-tumbuhan."
+            },
+            {
+                name: "Zirafah",
+                emoji: "🦒",
+                category: "Herbivor",
+                diet: "Pucuk daun pokok tinggi",
+                hint: "Lehernya yang panjang membolehkannya meragut daun pokok akasia yang tinggi.",
+                explanation: "Zirafah ialah Herbivor kerana ia hanya makan daun dan ranting tumbuhan."
+            },
+            {
+                name: "Rusa",
+                emoji: "🦌",
+                category: "Herbivor",
+                diet: "Pucuk daun muda & rumput",
+                hint: "Hidup di hutan dan mencari pucuk tumbuhan lembut serta buah-buahan yang gugur.",
+                explanation: "Rusa ialah Herbivor kerana ia hanya memakan tumbuh-tumbuhan."
+            },
+            {
+                name: "Kuda Belang",
+                emoji: "🦓",
+                category: "Herbivor",
+                diet: "Rumput padang savana",
+                hint: "Haiwan berbelang hitam putih yang meragut rumput di padang rumput luas.",
+                explanation: "Kuda Belang ialah Herbivor kerana diet utamanya ialah rumput dan tumbuhan."
+            },
+            {
+                name: "Panda",
+                emoji: "🐼",
+                category: "Herbivor",
+                diet: "Batang dan daun buluh",
+                hint: "Menghabiskan masa duduk mengunyah batang serta daun buluh segar.",
+                explanation: "Panda ialah Herbivor kerana ia hanya memakan tumbuhan iaitu buluh."
+            },
+            {
+                name: "Kambing",
+                emoji: "🐐",
+                category: "Herbivor",
+                diet: "Daun semak & rumput",
+                hint: "Gemar memakan dedaun pokok renek dan rumput di kawasan berbukit.",
+                explanation: "Kambing ialah Herbivor kerana ia hanya makan tumbuh-tumbuhan."
+            },
+
+            // KARNIVOR (8 Haiwan)
+            {
+                name: "Harimau",
+                emoji: "🐯",
+                category: "Karnivor",
+                diet: "Daging haiwan buruan",
+                hint: "Pemburu handal di hutan Malaysia dengan gigi taring tajam untuk menyiat daging.",
+                explanation: "Harimau ialah Karnivor kerana ia hanya memburu dan makan haiwan lain."
+            },
+            {
+                name: "Singa",
+                emoji: "🦁",
+                category: "Karnivor",
+                diet: "Daging haiwan lain",
+                hint: "Memburu secara berkumpulan di padang savana menggunakan kuku dan taring tajam.",
+                explanation: "Singa ialah Karnivor kerana ia hanya makan daging haiwan lain."
+            },
+            {
+                name: "Buaya",
+                emoji: "🐊",
+                category: "Karnivor",
+                diet: "Ikan & haiwan di sungai",
+                hint: "Reptilia berahang kuat yang menghendap ikan dan haiwan lain di dalam air.",
+                explanation: "Buaya ialah Karnivor kerana ia hanya memakan ikan dan haiwan lain."
+            },
+            {
+                name: "Helang",
+                emoji: "🦅",
+                category: "Karnivor",
+                diet: "Tikus, ular & ikan",
+                hint: "Mempunyai penglihatan tajam, kuku pencengkam kuat, dan paruh bengkok.",
+                explanation: "Helang ialah Karnivor kerana ia memburu haiwan kecil sebagai makanan."
+            },
+            {
+                name: "Jerung",
+                emoji: "🦈",
+                category: "Karnivor",
+                diet: "Ikan & hidupan laut",
+                hint: "Pemangsa lautan yang mempunyai deria bau sangat tajam untuk memburu ikan.",
+                explanation: "Jerung ialah Karnivor kerana ia hanya memakan ikan dan hidupan laut lain."
+            },
+            {
+                name: "Ular Sawa",
+                emoji: "🐍",
+                category: "Karnivor",
+                diet: "Tikus, katak & burung",
+                hint: "Membelit mangsa dan menelan haiwan lain secara keseluruhan.",
+                explanation: "Ular Sawa ialah Karnivor kerana ia hanya makan haiwan lain."
+            },
+            {
+                name: "Katak",
+                emoji: "🐸",
+                category: "Karnivor",
+                diet: "Serangga seperti lalat & nyamuk",
+                hint: "Menggunakan lidahnya yang panjang dan melekit untuk menangkap serangga.",
+                explanation: "Katak dewasa ialah Karnivor kerana ia makan serangga dan haiwan kecil."
+            },
+            {
+                name: "Labah-labah",
+                emoji: "🕷️",
+                category: "Karnivor",
+                diet: "Serangga kecil",
+                hint: "Membina sarang bersirat untuk memerangkap nyamuk, lalat, dan serangga lain.",
+                explanation: "Labah-labah ialah Karnivor kerana ia hanya memakan serangga."
+            },
+
+            // OMNIVOR (8 Haiwan)
+            {
+                name: "Beruang",
+                emoji: "🐻",
+                category: "Omnivor",
+                diet: "Buah beri, madu & ikan",
+                hint: "Gemar makan buah-buahan hutan, madu lebah, dan juga menangkap ikan di sungai.",
+                explanation: "Beruang ialah Omnivor kerana ia makan tumbuhan (buah) dan haiwan lain (ikan)."
+            },
+            {
+                name: "Ayam",
+                emoji: "🐔",
+                category: "Omnivor",
+                diet: "Bijirin jagung & cacing",
+                hint: "Mematuk bijirin tumbuhan serta mengais tanah mencari cacing dan serangga.",
+                explanation: "Ayam ialah Omnivor kerana ia makan tumbuhan (bijirin) dan haiwan (cacing)."
+            },
+            {
+                name: "Monyet",
+                emoji: "🐒",
+                category: "Omnivor",
+                diet: "Buah pisang & serangga kecil",
+                hint: "Suka makan buah-buahan dan pucuk daun, serta menangkap serangga kecil.",
+                explanation: "Monyet ialah Omnivor kerana ia makan tumbuhan dan haiwan lain."
+            },
+            {
+                name: "Gagak",
+                emoji: "🐦‍⬛",
+                category: "Omnivor",
+                diet: "Buah-buahan, bijirin & serangga",
+                hint: "Burung pintar yang memakan buah-buahan, bijirin, serangga, dan sisa daging.",
+                explanation: "Gagak ialah Omnivor kerana dietnya merangkumi tumbuhan dan haiwan."
+            },
+            {
+                name: "Tikus",
+                emoji: "🐭",
+                category: "Omnivor",
+                diet: "Biji-bijian, buah & serangga",
+                hint: "Memakan pelbagai jenis biji-bijian, buah-buahan, serta serangga kecil.",
+                explanation: "Tikus ialah Omnivor kerana ia makan kedua-dua tumbuhan dan haiwan."
+            },
+            {
+                name: "Itik",
+                emoji: "🦆",
+                category: "Omnivor",
+                diet: "Tumbuhan air, siput & ikan kecil",
+                hint: "Mencari tumbuhan air, bijirin, serta siput dan anak ikan di dalam kolam.",
+                explanation: "Itik ialah Omnivor kerana ia makan tumbuhan dan haiwan kecil."
+            },
+            {
+                name: "Penyu",
+                emoji: "🐢",
+                category: "Omnivor",
+                diet: "Rumpai laut & obor-obor",
+                hint: "Berenang di lautan memakan rumpai laut serta obor-obor dan ketam kecil.",
+                explanation: "Penyu ialah Omnivor kerana ia makan tumbuhan laut dan hidupan marin kecil."
+            },
+            {
+                name: "Landak",
+                emoji: "🦔",
+                category: "Omnivor",
+                diet: "Cacing, serangga & buah gugur",
+                hint: "Aktif pada waktu malam mencari kumbang, cacing, serta buah-buahan.",
+                explanation: "Landak ialah Omnivor kerana ia makan haiwan kecil dan tumbuh-tumbuhan."
+            }
+        ];
+
+        /* ============================================================================
+           2. PENJANA KESAN BUNYI SINTESIS (WEB AUDIO API)
+           ============================================================================ */
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+            }
+
+            init() {
+                try {
+                    if (!this.ctx) {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        this.ctx = new AudioContext();
+                    }
+                    if (this.ctx && this.ctx.state === 'suspended') {
+                        this.ctx.resume();
+                    }
+                } catch (e) {}
+            }
+
+            playTone(freq, type, duration, startTime = 0, vol = 0.2) {
+                if (this.isMuted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + startTime);
+
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime + startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + startTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(this.ctx.currentTime + startTime);
+                    osc.stop(this.ctx.currentTime + startTime + duration);
+                } catch (e) {}
+            }
+
+            playCorrect(combo = 1) {
+                const base = 523.25 + Math.min(combo - 1, 6) * 35;
+                this.playTone(base, 'sine', 0.14, 0, 0.22);
+                this.playTone(base * 1.25, 'sine', 0.24, 0.09, 0.25);
+            }
+
+            playWrong() {
+                this.playTone(210, 'triangle', 0.18, 0, 0.25);
+                this.playTone(165, 'triangle', 0.28, 0.14, 0.25);
+            }
+
+            playTimeout() {
+                this.playTone(392, 'sawtooth', 0.16, 0, 0.18);
+                this.playTone(330, 'sawtooth', 0.16, 0.16, 0.18);
+                this.playTone(261.63, 'sawtooth', 0.35, 0.32, 0.2);
+            }
+
+            playClick() {
+                this.playTone(460, 'sine', 0.07, 0, 0.12);
+            }
+
+            playWin() {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((n, idx) => {
+                    this.playTone(n, 'triangle', 0.25, idx * 0.11, 0.22);
+                });
+            }
+        }
+
+        const sfx = new SoundEffects();
+
+        function toggleMute() {
+            sfx.isMuted = !sfx.isMuted;
+            const btn = document.getElementById('btn-sound');
+            btn.textContent = sfx.isMuted ? '🔇' : '🔊';
+            if (!sfx.isMuted) sfx.playClick();
+        }
+
+        /* ============================================================================
+           3. KEADAAN PERMAINAN (GAME STATE)
+           ============================================================================ */
+        const PRACTICE_TOTAL_QUESTIONS = 10;
+        const TIMED_TOTAL_SECONDS = 60;
+
+        let gameState = {
+            mode: 'practice',
+            questionPool: [],
+            currentIndex: 0,
+            score: 0,
+            lives: 3,
+            combo: 0,
+            maxCombo: 0,
+            totalAnswered: 0,
+            correctCount: 0,
+            mistakes: [],
+            isLocked: false,
+            isGameOver: false,
+            globalTimerInterval: null,
+            autoAdvanceTimeout: null,
+            timeRemaining: TIMED_TOTAL_SECONDS
+        };
+
+        /* ============================================================================
+           4. KAWALAN NAVIGASI & PILIHAN MOD
+           ============================================================================ */
+        function selectMode(mode) {
+            sfx.playClick();
+            gameState.mode = mode;
+
+            const btnPractice = document.getElementById('mode-practice');
+            const btnTimed = document.getElementById('mode-timed');
+
+            if (mode === 'practice') {
+                btnPractice.className = "p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50 text-emerald-950 font-bold flex items-center gap-3.5 text-left transition shadow-sm ring-2 ring-emerald-400";
+                btnTimed.className = "p-4 rounded-2xl border-2 border-slate-300 bg-white hover:bg-amber-50 text-slate-700 font-bold flex items-center gap-3.5 text-left transition";
+            } else {
+                btnTimed.className = "p-4 rounded-2xl border-2 border-amber-500 bg-amber-50 text-amber-950 font-bold flex items-center gap-3.5 text-left transition shadow-sm ring-2 ring-amber-400";
+                btnPractice.className = "p-4 rounded-2xl border-2 border-slate-300 bg-white hover:bg-emerald-50 text-slate-700 font-bold flex items-center gap-3.5 text-left transition";
+            }
+        }
+
+        function showScreen(screenId) {
+            ['screen-start', 'screen-game', 'screen-end'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+
+            const btnHome = document.getElementById('btn-home');
+            if (screenId === 'screen-game') {
+                btnHome.classList.remove('hidden');
+            } else {
+                btnHome.classList.add('hidden');
+            }
+        }
+
+        function confirmReturnHome() {
+            sfx.playClick();
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            sfx.playClick();
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        function goHome() {
+            stopAllTimers();
+            gameState.isGameOver = true;
+            closeConfirmModal();
+            showScreen('screen-start');
+        }
+
+        function stopAllTimers() {
+            if (gameState.globalTimerInterval) {
+                clearInterval(gameState.globalTimerInterval);
+                gameState.globalTimerInterval = null;
+            }
+            if (gameState.autoAdvanceTimeout) {
+                clearTimeout(gameState.autoAdvanceTimeout);
+                gameState.autoAdvanceTimeout = null;
+            }
+        }
+
+        /* ============================================================================
+           5. LOGIK UTAMA PERMAINAN
+           ============================================================================ */
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function buildBalancedPool() {
+            const h = shuffleArray(ANIMALS_DB.filter(a => a.category === 'Herbivor'));
+            const k = shuffleArray(ANIMALS_DB.filter(a => a.category === 'Karnivor'));
+            const o = shuffleArray(ANIMALS_DB.filter(a => a.category === 'Omnivor'));
+
+            if (gameState.mode === 'practice') {
+                const counts = shuffleArray([4, 3, 3]);
+                return shuffleArray([
+                    ...h.slice(0, counts[0]),
+                    ...k.slice(0, counts[1]),
+                    ...o.slice(0, counts[2])
+                ]);
+            } else {
+                return shuffleArray([...h, ...k, ...o]);
+            }
+        }
+
+        function startGame() {
+            sfx.init();
+            sfx.playClick();
+            stopAllTimers();
+
+            gameState.questionPool = buildBalancedPool();
+            gameState.currentIndex = 0;
+            gameState.score = 0;
+            gameState.lives = 3;
+            gameState.combo = 0;
+            gameState.maxCombo = 0;
+            gameState.totalAnswered = 0;
+            gameState.correctCount = 0;
+            gameState.mistakes = [];
+            gameState.isLocked = false;
+            gameState.isGameOver = false;
+            gameState.timeRemaining = TIMED_TOTAL_SECONDS;
+
+            const heartsDisplay = document.getElementById('hearts-display');
+            const practiceBadge = document.getElementById('practice-badge');
+            const qCounterBox = document.getElementById('question-counter-box');
+            const gTimerBox = document.getElementById('global-timer-box');
+
+            if (gameState.mode === 'practice') {
+                heartsDisplay.classList.add('hidden');
+                practiceBadge.classList.remove('hidden');
+                qCounterBox.classList.remove('hidden');
+                gTimerBox.classList.add('hidden');
+            } else {
+                heartsDisplay.classList.remove('hidden');
+                practiceBadge.classList.add('hidden');
+                qCounterBox.classList.add('hidden');
+                gTimerBox.classList.remove('hidden');
+                startGlobalTimer();
+            }
+
+            showScreen('screen-game');
+            updateHUD();
+            loadQuestion();
+        }
+
+        function startGlobalTimer() {
+            updateGlobalTimerUI();
+            gameState.globalTimerInterval = setInterval(() => {
+                if (gameState.isGameOver) {
+                    clearInterval(gameState.globalTimerInterval);
+                    return;
+                }
+                if (gameState.isLocked) return;
+
+                gameState.timeRemaining -= 0.1;
+                if (gameState.timeRemaining <= 0) {
+                    gameState.timeRemaining = 0;
+                    updateGlobalTimerUI();
+                    sfx.playTimeout();
+                    endGame('timeout');
+                } else {
+                    updateGlobalTimerUI();
+                }
+            }, 100);
+        }
+
+        function updateGlobalTimerUI() {
+            const secs = Math.ceil(gameState.timeRemaining);
+            const timerText = document.getElementById('global-timer-text');
+            const progressBar = document.getElementById('progress-bar');
+
+            timerText.textContent = `${secs}s`;
+            const pct = (gameState.timeRemaining / TIMED_TOTAL_SECONDS) * 100;
+            progressBar.style.width = `${Math.max(0, pct)}%`;
+
+            if (secs <= 10) {
+                timerText.classList.add('text-red-600', 'animate-pulse');
+                progressBar.className = "h-full bg-gradient-to-r from-red-500 to-rose-600 rounded-full transition-all duration-100";
+            } else {
+                timerText.classList.remove('text-red-600', 'animate-pulse');
+                progressBar.className = "h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-100";
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').textContent = gameState.score;
+
+            const comboBadge = document.getElementById('combo-badge');
+            if (gameState.combo >= 2) {
+                comboBadge.textContent = `🔥 x${gameState.combo}`;
+                comboBadge.classList.remove('hidden');
+            } else {
+                comboBadge.classList.add('hidden');
+            }
+
+            if (gameState.mode === 'practice') {
+                const currentNum = Math.min(gameState.currentIndex + 1, PRACTICE_TOTAL_QUESTIONS);
+                document.getElementById('question-counter').textContent = `${currentNum} / ${PRACTICE_TOTAL_QUESTIONS}`;
+
+                const pct = (gameState.currentIndex / PRACTICE_TOTAL_QUESTIONS) * 100;
+                const progressBar = document.getElementById('progress-bar');
+                progressBar.className = "h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-300";
+                progressBar.style.width = `${Math.max(8, pct)}%`;
+            } else {
+                const hearts = '❤️'.repeat(Math.max(0, gameState.lives)) + '🖤'.repeat(Math.max(0, 3 - gameState.lives));
+                document.getElementById('hearts-display').textContent = hearts;
+            }
+        }
+
+        function setCategoryButtonsEnabled(enabled) {
+            ['btn-herbivor', 'btn-karnivor', 'btn-omnivor'].forEach(id => {
+                document.getElementById(id).disabled = !enabled;
+            });
+        }
+
+        function getCurrentAnimal() {
+            if (gameState.currentIndex >= gameState.questionPool.length) {
+                gameState.questionPool = gameState.questionPool.concat(shuffleArray(ANIMALS_DB));
+            }
+            return gameState.questionPool[gameState.currentIndex];
+        }
+
+        function loadQuestion() {
+            if (gameState.isGameOver) return;
+
+            if (gameState.autoAdvanceTimeout) {
+                clearTimeout(gameState.autoAdvanceTimeout);
+                gameState.autoAdvanceTimeout = null;
+            }
+
+            gameState.isLocked = false;
+            setCategoryButtonsEnabled(true);
+            document.getElementById('feedback-overlay').classList.add('hidden');
+
+            const currentAnimal = getCurrentAnimal();
+            const card = document.getElementById('animal-card');
+
+            card.style.transition = 'none';
+            card.style.transform = '';
+            card.style.opacity = '1';
+            card.classList.remove('animate-pop-in', 'animate-shake');
+            void card.offsetWidth;
+            card.classList.add('animate-pop-in');
+
+            document.getElementById('animal-emoji').textContent = currentAnimal.emoji;
+            document.getElementById('animal-name').textContent = currentAnimal.name;
+            document.getElementById('animal-diet-tag').textContent = `Diet: ${currentAnimal.diet}`;
+            document.getElementById('animal-hint').textContent = `"${currentAnimal.hint}"`;
+
+            updateHUD();
+        }
+
+        function handleAnswer(selectedCategory) {
+            if (gameState.isLocked || gameState.isGameOver) return;
+            gameState.isLocked = true;
+            setCategoryButtonsEnabled(false);
+
+            const currentAnimal = getCurrentAnimal();
+            const isCorrect = selectedCategory === currentAnimal.category;
+            const card = document.getElementById('animal-card');
+
+            gameState.totalAnswered++;
+
+            if (isCorrect) {
+                gameState.combo++;
+                if (gameState.combo > gameState.maxCombo) {
+                    gameState.maxCombo = gameState.combo;
+                }
+                gameState.correctCount++;
+
+                const comboBonus = (gameState.combo - 1) * 20;
+                const pointsEarned = 100 + comboBonus;
+                gameState.score += pointsEarned;
+
+                sfx.playCorrect(gameState.combo);
+                updateHUD();
+
+                const titleMsg = gameState.combo >= 2
+                    ? `Betul! +${pointsEarned} (Kombo x${gameState.combo})`
+                    : `Betul! +${pointsEarned} Markah`;
+
+                showFeedback(true, titleMsg, currentAnimal.explanation);
+            } else {
+                gameState.combo = 0;
+                if (gameState.mode === 'timed') {
+                    gameState.lives--;
+                }
+
+                gameState.mistakes.push({
+                    animal: currentAnimal,
+                    chosen: selectedCategory
+                });
+
+                sfx.playWrong();
+                card.classList.add('animate-shake');
+                updateHUD();
+
+                showFeedback(
+                    false,
+                    `Kurang Tepat! (Pilihan: ${selectedCategory})`,
+                    currentAnimal.explanation
+                );
+            }
+
+            const delay = gameState.mode === 'timed' ? 2000 : 2800;
+            gameState.autoAdvanceTimeout = setTimeout(() => {
+                advanceToNextQuestion();
+            }, delay);
+        }
+
+        function advanceToNextQuestion() {
+            if (gameState.isGameOver || !gameState.isLocked) return;
+
+            if (gameState.autoAdvanceTimeout) {
+                clearTimeout(gameState.autoAdvanceTimeout);
+                gameState.autoAdvanceTimeout = null;
+            }
+
+            gameState.currentIndex++;
+
+            if (gameState.mode === 'practice') {
+                if (gameState.currentIndex >= PRACTICE_TOTAL_QUESTIONS) {
+                    document.getElementById('progress-bar').style.width = '100%';
+                    endGame('completed');
+                } else {
+                    loadQuestion();
+                }
+            } else {
+                if (gameState.lives <= 0) {
+                    endGame('nolives');
+                } else if (gameState.timeRemaining <= 0) {
+                    endGame('timeout');
+                } else {
+                    loadQuestion();
+                }
+            }
+        }
+
+        function showFeedback(isSuccess, title, description) {
+            const overlay = document.getElementById('feedback-overlay');
+            const fCard = document.getElementById('feedback-card');
+            const fIcon = document.getElementById('feedback-icon');
+            const fTitle = document.getElementById('feedback-title');
+            const fDesc = document.getElementById('feedback-desc');
+
+            if (isSuccess) {
+                fCard.className = "w-full h-full rounded-3xl p-7 shadow-2xl border-4 border-emerald-400 bg-emerald-50/95 text-emerald-950 flex flex-col items-center justify-center text-center space-y-4 animate-pop-in";
+                fIcon.textContent = "🎉";
+                fTitle.className = "font-display text-3xl font-bold text-emerald-700";
+            } else {
+                fCard.className = "w-full h-full rounded-3xl p-7 shadow-2xl border-4 border-rose-400 bg-rose-50/95 text-rose-950 flex flex-col items-center justify-center text-center space-y-4 animate-pop-in";
+                fIcon.textContent = "💡";
+                fTitle.className = "font-display text-3xl font-bold text-rose-700";
+            }
+
+            fTitle.textContent = title;
+            fDesc.textContent = description;
+            overlay.classList.remove('hidden');
+        }
+
+        /* ============================================================================
+           6. SKRIN KEPUTUSAN AKHIR & PANGKAT SAINTIFIK
+           ============================================================================ */
+        function endGame(reason) {
+            if (gameState.isGameOver) return;
+            gameState.isGameOver = true;
+            stopAllTimers();
+
+            showScreen('screen-end');
+
+            const total = Math.max(1, gameState.totalAnswered);
+            const accuracy = gameState.totalAnswered === 0
+                ? 0
+                : Math.round((gameState.correctCount / total) * 100);
+
+            if (accuracy >= 50 && reason !== 'nolives' && reason !== 'timeout') {
+                sfx.playWin();
+            }
+
+            let stars = "⭐";
+            let rankIcon = "🌱";
+            let rankTitle = "Perintis Alam";
+
+            if (accuracy >= 90 && gameState.correctCount >= 8) {
+                stars = "⭐⭐⭐";
+                rankIcon = "🏆";
+                rankTitle = "Pakar Zoologi Muda";
+            } else if (accuracy >= 70 && gameState.correctCount >= 5) {
+                stars = "⭐⭐⭐";
+                rankIcon = "🔬";
+                rankTitle = "Saintis Muda Cemerlang";
+            } else if (accuracy >= 50) {
+                stars = "⭐⭐";
+                rankIcon = "🧭";
+                rankTitle = "Penjelajah Rimba";
+            }
+
+            document.getElementById('end-stars').textContent = stars;
+            document.getElementById('end-rank-icon').textContent = rankIcon;
+            document.getElementById('end-rank-title').textContent = rankTitle;
+
+            if (reason === 'completed') {
+                document.getElementById('end-title').textContent = "Latihan Selesai!";
+                document.getElementById('end-subtitle').textContent = `Anda menjawab ${gameState.correctCount} daripada ${PRACTICE_TOTAL_QUESTIONS} soalan dengan betul.`;
+            } else if (reason === 'timeout') {
+                document.getElementById('end-title').textContent = "Masa Tamat! ⏱️";
+                document.getElementById('end-subtitle').textContent = `Anda berjaya mengelas ${gameState.correctCount} haiwan dengan tepat dalam masa 60 saat!`;
+            } else {
+                document.getElementById('end-title').textContent = "Nyawa Habis! 💔";
+                document.getElementById('end-subtitle').textContent = `Anda mengelas ${gameState.correctCount} haiwan dengan tepat.`;
+            }
+
+            document.getElementById('end-score').textContent = gameState.score;
+            document.getElementById('end-accuracy').textContent = `${accuracy}%`;
+            document.getElementById('end-max-combo').textContent = `${gameState.maxCombo}x`;
+
+            const mistakesContainer = document.getElementById('mistakes-container');
+            const mistakesList = document.getElementById('mistakes-list');
+            const perfectBanner = document.getElementById('perfect-banner');
+
+            mistakesList.innerHTML = '';
+
+            if (gameState.mistakes.length === 0) {
+                mistakesContainer.classList.add('hidden');
+                perfectBanner.classList.remove('hidden');
+            } else {
+                perfectBanner.classList.add('hidden');
+                mistakesContainer.classList.remove('hidden');
+
+                gameState.mistakes.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = "bg-white rounded-2xl p-3.5 border border-rose-200 flex items-start gap-3 text-sm shadow-2xs";
+                    row.innerHTML = `
+                        <span class="text-3xl shrink-0">${item.animal.emoji}</span>
+                        <div>
+                            <div class="font-bold text-slate-800 text-base">
+                                ${item.animal.name} &rarr; <span class="text-emerald-700 underline">${item.animal.category}</span>
+                                <span class="text-xs font-semibold text-rose-600 ml-1">(Pilihan anda: ${item.chosen})</span>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-0.5 leading-snug">${item.animal.explanation}</p>
+                        </div>
+                    `;
+                    mistakesList.appendChild(row);
+                });
+            }
+        }
+
+        /* ============================================================================
+           7. INTERAKSI SERET & LEPAS (DRAG & DROP TERLARAS DENGAN --scale)
+           ============================================================================ */
+        (function setupDragAndDrop() {
+            const card = document.getElementById('animal-card');
+            const dropZones = document.querySelectorAll('.drop-zone');
+
+            let isDragging = false;
+            let startX = 0, startY = 0;
+            let currentHoveredZone = null;
+
+            function checkHoveredZone(clientX, clientY) {
+                let foundZone = null;
+                const pad = 14 * currentScale;
+                dropZones.forEach(zone => {
+                    const rect = zone.getBoundingClientRect();
+                    if (
+                        clientX >= rect.left - pad &&
+                        clientX <= rect.right + pad &&
+                        clientY >= rect.top - pad &&
+                        clientY <= rect.bottom + pad
+                    ) {
+                        foundZone = zone;
+                    }
+                });
+
+                if (currentHoveredZone !== foundZone) {
+                    if (currentHoveredZone) currentHoveredZone.classList.remove('drop-target-active');
+                    if (foundZone) foundZone.classList.add('drop-target-active');
+                    currentHoveredZone = foundZone;
+                }
+            }
+
+            function startDrag(clientX, clientY) {
+                if (gameState.isLocked || gameState.isGameOver) return;
+                isDragging = true;
+                startX = clientX;
+                startY = clientY;
+                card.style.transition = 'none';
+                card.style.zIndex = '40';
+            }
+
+            function moveDrag(clientX, clientY) {
+                if (!isDragging || gameState.isLocked || gameState.isGameOver) return;
+                // Bahagikan pergerakan piksel skrin dengan currentScale supaya pergerakan kad mengikut kursor tepat 1:1
+                const dx = (clientX - startX) / (currentScale || 1);
+                const dy = (clientY - startY) / (currentScale || 1);
+                const rotate = Math.max(-16, Math.min(16, dx * 0.04));
+
+                card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rotate}deg)`;
+                checkHoveredZone(clientX, clientY);
+            }
+
+            function endDrag() {
+                if (!isDragging) return;
+                isDragging = false;
+                card.style.zIndex = '20';
+
+                if (currentHoveredZone && !gameState.isLocked && !gameState.isGameOver) {
+                    const chosenCategory = currentHoveredZone.getAttribute('data-category');
+                    currentHoveredZone.classList.remove('drop-target-active');
+                    currentHoveredZone = null;
+
+                    card.style.transition = 'transform 0.2s ease';
+                    card.style.transform = '';
+                    handleAnswer(chosenCategory);
+                } else {
+                    if (currentHoveredZone) {
+                        currentHoveredZone.classList.remove('drop-target-active');
+                        currentHoveredZone = null;
+                    }
+                    card.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    card.style.transform = '';
+                }
+            }
+
+            if (window.PointerEvent) {
+                card.addEventListener('pointerdown', (e) => {
+                    if (e.button !== 0 && e.pointerType === 'mouse') return;
+                    startDrag(e.clientX, e.clientY);
+                    try { card.setPointerCapture(e.pointerId); } catch (err) {}
+                });
+                card.addEventListener('pointermove', (e) => moveDrag(e.clientX, e.clientY));
+                card.addEventListener('pointerup', (e) => {
+                    try { card.releasePointerCapture(e.pointerId); } catch (err) {}
+                    endDrag();
+                });
+                card.addEventListener('pointercancel', (e) => {
+                    try { card.releasePointerCapture(e.pointerId); } catch (err) {}
+                    endDrag();
+                });
+            } else {
+                card.addEventListener('touchstart', (e) => {
+                    if (e.touches.length > 0) startDrag(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+                card.addEventListener('touchmove', (e) => {
+                    if (isDragging && e.touches.length > 0) {
+                        e.preventDefault();
+                        moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+                    }
+                }, { passive: false });
+                card.addEventListener('touchend', endDrag);
+                card.addEventListener('touchcancel', endDrag);
+            }
+        })();
+
+        /* ============================================================================
+           8. KAWALAN PAPAN KEKUNCI (1, 2, 3 & ENTER/SPACE)
+           ============================================================================ */
+        document.addEventListener('keydown', (e) => {
+            const gameScreen = document.getElementById('screen-game');
+            const confirmModal = document.getElementById('confirm-modal');
+            if (gameScreen.classList.contains('hidden') || !confirmModal.classList.contains('hidden')) return;
+
+            if (!gameState.isLocked && !gameState.isGameOver) {
+                if (e.key === '1') handleAnswer('Herbivor');
+                else if (e.key === '2') handleAnswer('Karnivor');
+                else if (e.key === '3') handleAnswer('Omnivor');
+            } else if (gameState.isLocked && !gameState.isGameOver) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    advanceToNextQuestion();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
